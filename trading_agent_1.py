@@ -10,8 +10,10 @@ import feedparser
 from datetime import datetime
 
 # ── Credentials ─────────────────────────────────────────────
-BOT_TOKEN = "8760995296:AAEK-2lmNRPmgcMvShLW9P2FT1TKUQsDA0I"
-CHAT_ID   = "8699759772"
+import os
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
+CHAT_ID   = os.environ.get('CHAT_ID')
+
 
 
 # ── Telegram ─────────────────────────────────────────────────
