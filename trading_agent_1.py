@@ -516,7 +516,7 @@ def complete_morning_report():
 def get_commodity_signal(name, symbol):
     try:
         ticker = yf.Ticker(symbol)
-        data   = ticker.history(period="5d", interval="15m")
+        data   = ticker.history(period="1mo")
 
         data['RSI']    = calculate_rsi(data['Close'], period=14)
         macd, signal   = calculate_macd_signal(data['Close'])
