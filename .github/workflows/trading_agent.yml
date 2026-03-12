@@ -2,8 +2,8 @@ name: Trading Agent
 
 on:
   schedule:
-    - cron: '0 3 * * 1-5'      # 8:30 AM IST — Morning Report
-    - cron: '*/15 3-10 * * 1-5' # Har 15 min 9:15-3:15 PM IST — Signals
+    - cron: '0 3 * * 1-5'
+    - cron: '*/15 3-10 * * 1-5'
   workflow_dispatch:
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
         run: pip install yfinance feedparser requests pandas pytz
 
       - name: Morning Report (8:30 AM)
-        if: github.event.schedule == '0 3 * * 1-5'
+        if: github.event.schedule == '0 3 * * 1-5' || github.event_name == 'workflow_dispatch'
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
