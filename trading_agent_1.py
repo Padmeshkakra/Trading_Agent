@@ -559,47 +559,55 @@ def get_all_signals():
     hour = now.hour
     mint = now.minute
 
-    # Market hours check
-    if not ((9 <= hour < 15) or (hour == 15 and mint <= 15)):
-        print(f"Market closed — IST: {now.strftime('%H:%M')}")
+    # Nifty market hours
+    nifty_open = (9 <= hour < 15) or (hour == 15 and mint <= 15)
+    
+    # Commodity market hours — 9 AM to 11:45 PM
+    commodity_open = (9 <= hour < 23) or (hour == 23 and mint <= 45)
+
+    if not commodity_open:
+        print(f"All markets closed — IST: {now.strftime('%H:%M')}")
         return
 
     try:
-        # Nifty Options
-        ticker = yf.Ticker("^NSEI")
-        data   = ticker.history(period="5d", interval="15m")
-        data['RSI']    = calculate_rsi(data['Close'], period=14)
-        macd, signal   = calculate_macd_signal(data['Close'])
-        data['MACD']   = macd
-        data['Signal'] = signal
-
-        rsi   = round(data['RSI'].iloc[-1], 2)
-        macd  = data['MACD'].iloc[-1]
-        sig   = data['Signal'].iloc[-1]
-        spot  = round(data['Close'].iloc[-1], 2)
-        atm   = round(spot / 50) * 50
-
-        if rsi < 35 and macd > sig:
-            nifty_signal = f"BUY {atm} CE 🟢"
-        elif rsi > 65 and macd < sig:
-            nifty_signal = f"BUY {atm} PE 🔴"
-        else:
-            nifty_signal = "NEUTRAL ⚪"
-
         msg  = f"📊 <b>TRADING SIGNALS</b>\n"
         msg += f"⏰ {now.strftime('%d-%m-%Y %H:%M')} IST\n"
         msg += "━" * 25 + "\n"
-        msg += f"\n📈 <b>Nifty Options:</b>\n"
-        msg += f"Spot   : {spot}\n"
-        msg += f"RSI    : {rsi}\n"
-        msg += f"MACD   : {'BULLISH 📈' if macd > sig else 'BEARISH 📉'}\n"
-        msg += f"Signal : <b>{nifty_signal}</b>\n"
 
-        # Crude Oil
+        # Nifty — sirf market hours mein
+        if nifty_open:
+            ticker = yf.Ticker("^NSEI")
+            data   = ticker.history(period="5d", interval="15m")
+            data['RSI']    = calculate_rsi(data['Close'], period=14)
+            macd, signal   = calculate_macd_signal(data['Close'])
+            data['MACD']   = macd
+            data['Signal'] = signal
+
+            rsi   = round(data['RSI'].iloc[-1], 2)
+            macd  = data['MACD'].iloc[-1]
+            sig   = data['Signal'].iloc[-1]
+            spot  = round(data['Close'].iloc[-1], 2)
+            atm   = round(spot / 50) * 50
+
+            if rsi < 35 and macd > sig:
+                nifty_signal = f"BUY {atm} CE 🟢"
+            elif rsi > 65 and macd < sig:
+                nifty_signal = f"BUY {atm} PE 🔴"
+            else:
+                nifty_signal = "NEUTRAL ⚪"
+
+            msg += f"\n📈 <b>Nifty Options:</b>\n"
+            msg += f"Spot   : {spot}\n"
+            msg += f"RSI    : {rsi}\n"
+            msg += f"MACD   : {'BULLISH 📈' if macd > sig else 'BEARISH 📉'}\n"
+            msg += f"Signal : <b>{nifty_signal}</b>\n"
+        else:
+            msg += f"\n📈 <b>Nifty:</b> Market Closed 🔴\n"
+
+        # Commodity — hamesha check karo
         crude_data, _ = get_commodity_signal("Crude Oil", "CL=F")
         msg += crude_data
 
-        # Natural Gas
         ng_data, _    = get_commodity_signal("Natural Gas", "NG=F")
         msg += ng_data
 
