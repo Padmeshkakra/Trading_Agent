@@ -1,10 +1,11 @@
 name: Trading Agent
-
 on:
   schedule:
     - cron: '0 3 * * 1-5'
     - cron: '*/15 3-10 * * 1-5'
+    - cron: '*/15 11-18 * * 1-5'
   workflow_dispatch:
+
 
 jobs:
   run-agent:
