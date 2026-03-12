@@ -513,35 +513,23 @@ def complete_morning_report():
 
 
 # ── Commodity Signal ─────────────────────────────────────────
-def get_commodity_signal(name, symbol_av):
+def get_commodity_signal(name, symbol):
     try:
-        import os
-        api_key = os.environ.get('ALPHA_KEY')
-        
-        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={symbol_av}&interval=15min&apikey={api_key}"
-        
-        response = requests.get(url)
-        data_json = response.json()
-        
-        # Parse data
-        ts = data_json.get('Time Series (15min)', {})
-        if not ts:
+        ticker = yf.Ticker(symbol)
+        data   = ticker.history(period="3mo")
+
+        if len(data) < 5:
             return f"\n🛢️ <b>{name}:</b> Data unavailable\n", "NEUTRAL"
-        
-        closes = []
-        for timestamp, values in sorted(ts.items()):
-            closes.append(float(values['4. close']))
-        
-        close = pd.Series(closes)
-        price = round(closes[-1], 2)
-        
-        # RSI + MACD
-        rsi_series  = calculate_rsi(close, period=14)
-        macd, signal = calculate_macd_signal(close)
-        
-        rsi  = round(rsi_series.iloc[-1], 2)
-        macd = macd.iloc[-1]
-        sig  = signal.iloc[-1]
+
+        data['RSI']    = calculate_rsi(data['Close'], period=14)
+        macd, signal   = calculate_macd_signal(data['Close'])
+        data['MACD']   = macd
+        data['Signal'] = signal
+
+        rsi   = round(data['RSI'].iloc[-1], 2)
+        macd  = data['MACD'].iloc[-1]
+        sig   = data['Signal'].iloc[-1]
+        price = round(data['Close'].iloc[-1], 2)
 
         if rsi < 35 and macd > sig:
             action = "BUY 🟢"
@@ -620,10 +608,10 @@ def get_all_signals():
             msg += f"\n📈 <b>Nifty:</b> Market Closed 🔴\n"
 
         # Commodity — hamesha check karo
-        crude_data, _ = get_commodity_signal("Crude Oil", "USO")
+        crude_data, _ = get_commodity_signal("Crude Oil", "CL=F")
         msg += crude_data
 
-        ng_data, _    = get_commodity_signal("Natural Gas", "UNG")
+        ng_data, _    = get_commodity_signal("Natural Gas", "NG=F")
         msg += ng_data
 
         msg += "\n━" * 25
