@@ -605,10 +605,10 @@ def get_all_signals():
             msg += f"\n📈 <b>Nifty:</b> Market Closed 🔴\n"
 
         # Commodity — hamesha check karo
-        crude_data, _ = get_commodity_signal("Crude Oil MCX", "CRUDEOIL.MCX")
+        crude_data, _ = get_commodity_signal("Crude Oil", "CL=F")
         msg += crude_data
 
-        ng_data, _    = get_commodity_signal("Natural Gas MCX", "NATURALGAS.MCX")
+        ng_data, _    = get_commodity_signal("Natural Gas", "NG=F")
         msg += ng_data
 
         msg += "\n━" * 25
