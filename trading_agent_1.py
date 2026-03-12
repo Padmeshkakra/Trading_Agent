@@ -154,9 +154,8 @@ def calculate_macd(close):
     ema26  = close.ewm(span=26, adjust=False).mean()
     macd   = ema12 - ema26
     signal = macd.ewm(span=9, adjust=False).mean()
-    hist   = macd - signal
-    return "BULLISH 📈" if hist.iloc[-1] > 0 else "BEARISH 📉"
-
+    return macd, signal
+    
 def get_technical_analysis():
     try:
         ticker = yf.Ticker("^NSEI")
