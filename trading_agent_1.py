@@ -516,7 +516,7 @@ def complete_morning_report():
 def get_commodity_signal(name, symbol):
     try:
         ticker = yf.Ticker(symbol)
-        data   = ticker.history(period="1mo")
+        data   = ticker.history(period="5d", interval="15m")
 
         data['RSI']    = calculate_rsi(data['Close'], period=14)
         macd, signal   = calculate_macd_signal(data['Close'])
@@ -605,10 +605,10 @@ def get_all_signals():
             msg += f"\n📈 <b>Nifty:</b> Market Closed 🔴\n"
 
         # Commodity — hamesha check karo
-        crude_data, _ = get_commodity_signal("Crude Oil", "CL=F")
+        crude_data, _ = get_commodity_signal("Crude Oil MCX", "CRUDEOIL.MCX")
         msg += crude_data
 
-        ng_data, _    = get_commodity_signal("Natural Gas", "NG=F")
+        ng_data, _    = get_commodity_signal("Natural Gas MCX", "NATURALGAS.MCX")
         msg += ng_data
 
         msg += "\n━" * 25
