@@ -513,29 +513,35 @@ def complete_morning_report():
 
 
 # ── Commodity Signal ─────────────────────────────────────────
-def get_commodity_signal(name, symbol):
+def get_commodity_signal(name, symbol_av):
     try:
-        ticker = yf.Ticker(symbol)
+        import os
+        api_key = os.environ.get('ALPHA_KEY')
         
-        # Pehle 15 min try karo
-        data = ticker.history(period="5d", interval="15m")
+        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={symbol_av}&interval=15min&apikey={api_key}"
         
-        # Agar data nahi aaya toh daily try karo
-        if len(data) < 5:
-            data = ticker.history(period="1mo", interval="1d")
+        response = requests.get(url)
+        data_json = response.json()
         
-        if len(data) < 2:
+        # Parse data
+        ts = data_json.get('Time Series (15min)', {})
+        if not ts:
             return f"\n🛢️ <b>{name}:</b> Data unavailable\n", "NEUTRAL"
-
-        data['RSI']    = calculate_rsi(data['Close'], period=14)
-        macd, signal   = calculate_macd_signal(data['Close'])
-        data['MACD']   = macd
-        data['Signal'] = signal
-
-        rsi   = round(data['RSI'].iloc[-1], 2)
-        macd  = data['MACD'].iloc[-1]
-        sig   = data['Signal'].iloc[-1]
-        price = round(data['Close'].iloc[-1], 2)
+        
+        closes = []
+        for timestamp, values in sorted(ts.items()):
+            closes.append(float(values['4. close']))
+        
+        close = pd.Series(closes)
+        price = round(closes[-1], 2)
+        
+        # RSI + MACD
+        rsi_series  = calculate_rsi(close, period=14)
+        macd, signal = calculate_macd_signal(close)
+        
+        rsi  = round(rsi_series.iloc[-1], 2)
+        macd = macd.iloc[-1]
+        sig  = signal.iloc[-1]
 
         if rsi < 35 and macd > sig:
             action = "BUY 🟢"
@@ -557,7 +563,8 @@ def get_commodity_signal(name, symbol):
         return result, action
 
     except Exception as e:
-        return f"\n🛢️ <b>{name}:</b> Data unavailable\n", "NEUTRAL"
+        return f"\n🛢️ <b>{name}:</b> Data unavailable — {e}\n", "NEUTRAL"
+
 
 # ── All Signals ───────────────────────────────────────────────
 def get_all_signals():
@@ -613,10 +620,10 @@ def get_all_signals():
             msg += f"\n📈 <b>Nifty:</b> Market Closed 🔴\n"
 
         # Commodity — hamesha check karo
-        crude_data, _ = get_commodity_signal("Crude Oil", "CL=F")
+        crude_data, _ = get_commodity_signal("Crude Oil", "USO")
         msg += crude_data
 
-        ng_data, _    = get_commodity_signal("Natural Gas", "NG=F")
+        ng_data, _    = get_commodity_signal("Natural Gas", "UNG")
         msg += ng_data
 
         msg += "\n━" * 25
