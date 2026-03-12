@@ -35,7 +35,7 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python trading_agent_1.py signals
 
-     - name: Commodity Signals (Evening)
+      - name: Commodity Signals (Evening)
         if: github.event.schedule == '*/15 11-18 * * 1-5' || github.event_name == 'workflow_dispatch'
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
