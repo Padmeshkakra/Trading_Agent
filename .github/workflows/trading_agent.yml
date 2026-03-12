@@ -1,11 +1,11 @@
 name: Trading Agent
+
 on:
   schedule:
     - cron: '0 3 * * 1-5'
     - cron: '*/15 3-10 * * 1-5'
     - cron: '*/15 11-18 * * 1-5'
   workflow_dispatch:
-
 
 jobs:
   run-agent:
@@ -30,6 +30,13 @@ jobs:
 
       - name: Intraday Signals (Every 15 min)
         if: github.event.schedule == '*/15 3-10 * * 1-5'
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python trading_agent_1.py signals
+
+      - name: Commodity Signals (Evening)
+        if: github.event.schedule == '*/15 11-18 * * 1-5' || github.event_name == 'workflow_dispatch'
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
