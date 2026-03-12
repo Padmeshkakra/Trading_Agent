@@ -10,10 +10,8 @@ import feedparser
 from datetime import datetime
 
 # ── Credentials ─────────────────────────────────────────────
-import os
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
-CHAT_ID   = os.environ.get('CHAT_ID')
-
+BOT_TOKEN = "8760995296:AAEK-2lmNRPmgcMvShLW9P2FT1TKUQsDA0I"
+CHAT_ID   = "8699759772"
 
 
 # ── Telegram ─────────────────────────────────────────────────
@@ -514,6 +512,111 @@ def complete_morning_report():
     return report
 
 
+# ── Commodity Signal ─────────────────────────────────────────
+def get_commodity_signal(name, symbol):
+    try:
+        ticker = yf.Ticker(symbol)
+        data   = ticker.history(period="5d", interval="15m")
+
+        data['RSI']    = calculate_rsi(data['Close'], period=14)
+        macd, signal   = calculate_macd_signal(data['Close'])
+        data['MACD']   = macd
+        data['Signal'] = signal
+
+        rsi   = round(data['RSI'].iloc[-1], 2)
+        macd  = data['MACD'].iloc[-1]
+        sig   = data['Signal'].iloc[-1]
+        price = round(data['Close'].iloc[-1], 2)
+
+        if rsi < 35 and macd > sig:
+            action = "BUY 🟢"
+            reason = f"RSI Oversold ({rsi}) + MACD Bullish"
+        elif rsi > 65 and macd < sig:
+            action = "SELL 🔴"
+            reason = f"RSI Overbought ({rsi}) + MACD Bearish"
+        else:
+            action = "NEUTRAL ⚪"
+            reason = f"RSI: {rsi} — No clear signal"
+
+        result  = f"\n🛢️ <b>{name}:</b>\n"
+        result += f"Price  : {price}\n"
+        result += f"RSI    : {rsi}\n"
+        result += f"MACD   : {'BULLISH 📈' if macd > sig else 'BEARISH 📉'}\n"
+        result += f"Action : <b>{action}</b>\n"
+        result += f"Reason : {reason}\n"
+
+        return result, action
+
+    except Exception as e:
+        return f"\n{name}: Data unavailable\n", "NEUTRAL"
+
+
+# ── All Signals ───────────────────────────────────────────────
+def get_all_signals():
+    import pytz
+    IST  = pytz.timezone('Asia/Kolkata')
+    now  = datetime.now(IST)
+    hour = now.hour
+    mint = now.minute
+
+    # Market hours check
+    if not ((9 <= hour < 15) or (hour == 15 and mint <= 15)):
+        print(f"Market closed — IST: {now.strftime('%H:%M')}")
+        return
+
+    try:
+        # Nifty Options
+        ticker = yf.Ticker("^NSEI")
+        data   = ticker.history(period="5d", interval="15m")
+        data['RSI']    = calculate_rsi(data['Close'], period=14)
+        macd, signal   = calculate_macd_signal(data['Close'])
+        data['MACD']   = macd
+        data['Signal'] = signal
+
+        rsi   = round(data['RSI'].iloc[-1], 2)
+        macd  = data['MACD'].iloc[-1]
+        sig   = data['Signal'].iloc[-1]
+        spot  = round(data['Close'].iloc[-1], 2)
+        atm   = round(spot / 50) * 50
+
+        if rsi < 35 and macd > sig:
+            nifty_signal = f"BUY {atm} CE 🟢"
+        elif rsi > 65 and macd < sig:
+            nifty_signal = f"BUY {atm} PE 🔴"
+        else:
+            nifty_signal = "NEUTRAL ⚪"
+
+        msg  = f"📊 <b>TRADING SIGNALS</b>\n"
+        msg += f"⏰ {now.strftime('%d-%m-%Y %H:%M')} IST\n"
+        msg += "━" * 25 + "\n"
+        msg += f"\n📈 <b>Nifty Options:</b>\n"
+        msg += f"Spot   : {spot}\n"
+        msg += f"RSI    : {rsi}\n"
+        msg += f"MACD   : {'BULLISH 📈' if macd > sig else 'BEARISH 📉'}\n"
+        msg += f"Signal : <b>{nifty_signal}</b>\n"
+
+        # Crude Oil
+        crude_data, _ = get_commodity_signal("Crude Oil", "CL=F")
+        msg += crude_data
+
+        # Natural Gas
+        ng_data, _    = get_commodity_signal("Natural Gas", "NG=F")
+        msg += ng_data
+
+        msg += "\n━" * 25
+        msg += "\n#Options #CrudeOil #NaturalGas #Nifty"
+
+        send_telegram(msg)
+        print(f"✅ Signals sent! — {now.strftime('%H:%M')} IST")
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+
 # ── Run ──────────────────────────────────────────────────────
 if __name__ == "__main__":
-    complete_morning_report()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "signals":
+        get_all_signals()
+    else:
+        complete_morning_report()
