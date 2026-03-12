@@ -516,7 +516,16 @@ def complete_morning_report():
 def get_commodity_signal(name, symbol):
     try:
         ticker = yf.Ticker(symbol)
-        data   = ticker.history(period="5d", interval="15m")
+        
+        # Pehle 15 min try karo
+        data = ticker.history(period="5d", interval="15m")
+        
+        # Agar data nahi aaya toh daily try karo
+        if len(data) < 5:
+            data = ticker.history(period="1mo", interval="1d")
+        
+        if len(data) < 2:
+            return f"\n🛢️ <b>{name}:</b> Data unavailable\n", "NEUTRAL"
 
         data['RSI']    = calculate_rsi(data['Close'], period=14)
         macd, signal   = calculate_macd_signal(data['Close'])
@@ -548,8 +557,7 @@ def get_commodity_signal(name, symbol):
         return result, action
 
     except Exception as e:
-        return f"\n{name}: Data unavailable\n", "NEUTRAL"
-
+        return f"\n🛢️ <b>{name}:</b> Data unavailable\n", "NEUTRAL"
 
 # ── All Signals ───────────────────────────────────────────────
 def get_all_signals():
