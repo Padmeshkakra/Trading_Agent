@@ -590,7 +590,7 @@ def get_all_signals():
             data['MACD']   = macd
             data['Signal'] = signal
 
-            rsi   = round(data['RSI'].iloc[-1], 2)
+            rsi  = round(float(rsi_series), 2)
             macd  = data['MACD'].iloc[-1]
             sig   = data['Signal'].iloc[-1]
             spot  = round(data['Close'].iloc[-1], 2)
