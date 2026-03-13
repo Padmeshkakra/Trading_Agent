@@ -415,18 +415,18 @@ def calculate_trading_score(global_mood, india_mood, fii_net, dii_net, rsi, macd
         score -= 1.0
 
     score += 0.5 if fii_net > 0 else -0.5
-    score += 0.5 if dii_net > 0 else -0.5
+    score += 0.5 if dii_net > 0 else -0.5+
 
     if rsi < 30:
         score += 1.0
     elif rsi > 70:
         score -= 1.0
 
-    if "BULLISH" in macd:
-        score += 0.5
-    else:
-        score -= 0.5
-
+   macd_line, signal_line = macd
+if macd_line.iloc[-1] > signal_line.iloc[-1]:
+    score += 0.5
+else:
+    score -= 0.5
     score = max(0, min(10, round(score, 1)))
 
     if score >= 7:
