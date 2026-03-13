@@ -529,12 +529,12 @@ def get_commodity_signal(name, symbol):
         close  = pd.Series(closes)
         price  = round(closes[-1], 2)
         
-        rsi_val      = calculate_rsi(close, period=14)
-        macd, signal = calculate_macd(close)
-        
-        rsi  = round(rsi_val.iloc[-1], 2)
-        macd = macd.iloc[-1]
-        sig  = signal.iloc[-1]
+        rsi_series   = calculate_rsi(close, period=14)
+        macd_series, signal_series = calculate_macd(close)
+
+        rsi  = round(rsi_series.iloc[-1], 2)
+        macd = macd_series.iloc[-1]
+        sig  = signal_series.iloc[-1]
 
         if rsi < 35 and macd > sig:
             action = "BUY 🟢"
