@@ -533,7 +533,7 @@ def get_commodity_signal(name, symbol):
         macd_series, signal_series = calculate_macd(close)
 
         rsi  = round(rsi_series.iloc[-1], 2)
-        macd = float(macd_series..iloc[1)
+        macd = float(macd_series.iloc[-1)
         sig  = float(signal_series.iloc[-1])
 
         if rsi < 35 and macd > sig:
