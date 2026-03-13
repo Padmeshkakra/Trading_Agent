@@ -162,7 +162,9 @@ def get_technical_analysis():
         data   = ticker.history(period="3mo")
         close  = data['Close']
         rsi    = calculate_rsi(close)
-        macd   = calculate_macd(close)
+        macd_tuple = calculate_macd(close)
+macd = "BULLISH 📈" if macd_tuple[0].iloc[-1] > macd_tuple[1].iloc[-1] else "BEARISH 📉"
+macd = (macd_tuple[0], macd_tuple[1], macd)
 
         if rsi < 30:
             rsi_signal = f"{rsi} — OVERSOLD 🔥 (Buy Zone)"
@@ -422,7 +424,7 @@ def calculate_trading_score(global_mood, india_mood, fii_net, dii_net, rsi, macd
     elif rsi > 70:
         score -= 1.0
 
-    macd_line, signal_line = macd
+    macd_line, signal_line, _ = macd
     if macd_line.iloc[-1] > signal_line.iloc[-1]:
         score += 0.5
     else:
