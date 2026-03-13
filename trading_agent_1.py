@@ -415,7 +415,7 @@ def calculate_trading_score(global_mood, india_mood, fii_net, dii_net, rsi, macd
         score -= 1.0
 
     score += 0.5 if fii_net > 0 else -0.5
-    score += 0.5 if dii_net > 0 else -0.5+
+    score += 0.5 if dii_net > 0 else -0.5
 
     if rsi < 30:
         score += 1.0
