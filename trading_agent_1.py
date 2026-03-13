@@ -532,7 +532,7 @@ def get_commodity_signal(name, symbol):
         rsi_series   = calculate_rsi(close, period=14)
         macd_series, signal_series = calculate_macd(close)
 
-        rsi  = round(rsi_series.iloc[-1], 2)
+        rsi = round(float(rsi_series), 2)
         macd = float(macd_series.iloc[-1])
         sig  = float(signal_series.iloc[-1])
 
