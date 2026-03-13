@@ -146,7 +146,7 @@ def calculate_rsi(close, period=14):
     gain  = delta.where(delta > 0, 0).rolling(window=period).mean()
     loss  = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
     rs    = gain / loss
-    rsi   = round(100 - (100 / (1 + rs)).iloc[-1], 2)
+    rsi = 100 - (100 / (1 + rs))
     return rsi
 
 def calculate_macd(close):
