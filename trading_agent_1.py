@@ -14,7 +14,7 @@ BOT_TOKEN = "8760995296:AAEK-2lmNRPmgcMvShLW9P2FT1TKUQsDA0I"
 CHAT_ID   = "8699759772"
 
 
-# ── Telegram ─────────────────────────────────────────────────
+# ── Telegram ─────────────────────────────────────────────────    
 def send_telegram(message):
     url     = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
@@ -514,21 +514,27 @@ def complete_morning_report():
 # ── Commodity Signal ─────────────────────────────────────────
 def get_commodity_signal(name, symbol):
     try:
-        ticker = yf.Ticker(symbol)
-        data   = ticker.history(period="3mo")
-
-        if len(data) < 5:
+        import os
+        api_key = os.environ.get('ALPHA_KEY')
+        
+        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={api_key}"
+        response  = requests.get(url)
+        data_json = response.json()
+        
+        ts = data_json.get('Time Series (Daily)', {})
+        if not ts:
             return f"\n🛢️ <b>{name}:</b> Data unavailable\n", "NEUTRAL"
-
-        data['RSI']    = calculate_rsi(data['Close'], period=14)
-        macd, signal   = calculate_macd_signal(data['Close'])
-        data['MACD']   = macd
-        data['Signal'] = signal
-
-        rsi   = round(data['RSI'].iloc[-1], 2)
-        macd  = data['MACD'].iloc[-1]
-        sig   = data['Signal'].iloc[-1]
-        price = round(data['Close'].iloc[-1], 2)
+        
+        closes = [float(v['4. close']) for k, v in sorted(ts.items())]
+        close  = pd.Series(closes)
+        price  = round(closes[-1], 2)
+        
+        rsi_val      = calculate_rsi(close, period=14)
+        macd, signal = calculate_macd(close)
+        
+        rsi  = round(rsi_val.iloc[-1], 2)
+        macd = macd.iloc[-1]
+        sig  = signal.iloc[-1]
 
         if rsi < 35 and macd > sig:
             action = "BUY 🟢"
@@ -551,7 +557,6 @@ def get_commodity_signal(name, symbol):
 
     except Exception as e:
         return f"\n🛢️ <b>{name}:</b> Data unavailable — {e}\n", "NEUTRAL"
-
 
 # ── All Signals ───────────────────────────────────────────────
 def get_all_signals():
@@ -607,10 +612,10 @@ def get_all_signals():
             msg += f"\n📈 <b>Nifty:</b> Market Closed 🔴\n"
 
         # Commodity — hamesha check karo
-        crude_data, _ = get_commodity_signal("Crude Oil", "CL=F")
+        crude_data, _ = get_commodity_signal("Crude Oil", "USO")
         msg += crude_data
 
-        ng_data, _    = get_commodity_signal("Natural Gas", "NG=F")
+        ng_data, _    = get_commodity_signal("Natural Gas", "UNG")
         msg += ng_data
 
         msg += "\n━" * 25
