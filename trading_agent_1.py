@@ -512,29 +512,29 @@ def complete_morning_report():
 
 
 # ── Commodity Signal ─────────────────────────────────────────
-def get_commodity_signal(name, symbol):
+def get_commodity_signal(name, function):
     try:
         import os
         api_key = os.environ.get('ALPHA_KEY')
-        
-        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={api_key}"
-        response  = requests.get(url)
+
+        url      = f"https://www.alphavantage.co/query?function={function}&interval=monthly&apikey={api_key}"
+        response = requests.get(url)
         data_json = response.json()
-        
-        ts = data_json.get('Time Series (Daily)', {})
-        if not ts:
+
+        raw_data = data_json.get('data', [])
+        if not raw_data:
             return f"\n🛢️ <b>{name}:</b> Data unavailable\n", "NEUTRAL"
-        
-        closes = [float(v['4. close']) for k, v in sorted(ts.items())]
+
+        closes = [float(d['value']) for d in reversed(raw_data) if d['value'] != '.']
         close  = pd.Series(closes)
         price  = round(closes[-1], 2)
-        
-        rsi_series   = calculate_rsi(close, period=14)
-        macd_series, signal_series = calculate_macd(close)
 
-        rsi = round(float(rsi_series), 2)
+        rsi_series             = calculate_rsi(close, period=14)
+        macd_series, sig_series = calculate_macd(close)
+
+        rsi  = round(float(rsi_series.iloc[-1]), 2)
         macd = float(macd_series.iloc[-1])
-        sig  = float(signal_series.iloc[-1])
+        sig  = float(sig_series.iloc[-1])
 
         if rsi < 35 and macd > sig:
             action = "BUY 🟢"
@@ -557,7 +557,7 @@ def get_commodity_signal(name, symbol):
 
     except Exception as e:
         return f"\n🛢️ <b>{name}:</b> Data unavailable — {e}\n", "NEUTRAL"
-
+        
 # ── All Signals ───────────────────────────────────────────────
 def get_all_signals():
     import pytz
@@ -612,10 +612,10 @@ def get_all_signals():
             msg += f"\n📈 <b>Nifty:</b> Market Closed 🔴\n"
 
         # Commodity — hamesha check karo
-        crude_data, _ = get_commodity_signal("Crude Oil", "USO")
+        crude_data, _ = get_commodity_signal("Crude Oil WTI", "WTI")
         msg += crude_data
 
-        ng_data, _    = get_commodity_signal("Natural Gas", "UNG")
+        ng_data, _    = get_commodity_signal("Natural Gas", "NATURAL_GAS")
         msg += ng_data
 
         msg += "\n━" * 25
