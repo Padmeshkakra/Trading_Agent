@@ -422,27 +422,27 @@ def calculate_trading_score(global_mood, india_mood, fii_net, dii_net, rsi, macd
     elif rsi > 70:
         score -= 1.0
 
-macd_line, signal_line = macd
-        if macd_line.iloc[-1] > signal_line.iloc[-1]:
-            score += 0.5
-        else:
-            score -= 0.5
+    macd_line, signal_line = macd
+    if macd_line.iloc[-1] > signal_line.iloc[-1]:
+        score += 0.5
+    else:
+        score -= 0.5
+
     score = max(0, min(10, round(score, 1)))
 
     if score >= 7:
         action = "STRONG BUY 🚀"
     elif score >= 5.5:
-        action = "BUY 📈"
+        action = "BUY ✅"
     elif score >= 4:
-        action = "NEUTRAL — Wait & Watch ⚪"
+        action = "NEUTRAL — Wait & Watch ⏳"
     elif score >= 2.5:
         action = "CAUTION — Light Position ⚠️"
     else:
         action = "AVOID — Stay in Cash 🔴"
 
     return score, action
-
-
+    
 # ── Complete Morning Report ──────────────────────────────────
 def complete_morning_report():
     print("=" * 40)
