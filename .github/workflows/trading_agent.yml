@@ -8,7 +8,17 @@ on:
     - cron: '*/15 3-10 * * 1-5'
     # MCX Commodity 9 AM - 11:30 PM IST = 3:30 - 18:00 UTC (every 15 min)
     - cron: '*/15 10-18 * * 1-5'
+
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode: morning OR signals'
+        required: true
+        default: 'morning'
+        type: choice
+        options:
+          - morning
+          - signals
 
 jobs:
   run-agent:
@@ -26,27 +36,33 @@ jobs:
       - name: Install dependencies
         run: pip install yfinance feedparser requests pandas pytz
 
-      # ── Morning Report — 8:30 AM IST ──────────────────────
+      # ── Morning Report — 8:30 AM IST ──────────────────────────
       - name: Morning Report (8:30 AM IST)
-        if: github.event.schedule == '0 3 * * 1-5' || github.event_name == 'workflow_dispatch'
+        if: >
+          github.event.schedule == '0 3 * * 1-5' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'morning')
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID:   ${{ secrets.CHAT_ID }}
           ALPHA_KEY: ${{ secrets.ALPHA_KEY }}
         run: python trading_agent_1.py
 
-      # ── Intraday Signals — 9:15 AM to 3:30 PM IST ─────────
+      # ── Intraday Signals — 9:15 AM to 3:30 PM IST ─────────────
       - name: Intraday Signals (Every 15 min)
-        if: github.event.schedule == '*/15 3-10 * * 1-5'
+        if: >
+          github.event.schedule == '*/15 3-10 * * 1-5' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'signals')
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID:   ${{ secrets.CHAT_ID }}
           ALPHA_KEY: ${{ secrets.ALPHA_KEY }}
         run: python trading_agent_1.py signals
 
-      # ── Commodity Signals — Evening MCX ───────────────────
+      # ── Commodity Signals — Evening MCX ───────────────────────
       - name: Commodity Signals (MCX Evening)
-        if: github.event.schedule == '*/15 10-18 * * 1-5'
+        if: >
+          github.event.schedule == '*/15 10-18 * * 1-5' ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'signals')
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID:   ${{ secrets.CHAT_ID }}
