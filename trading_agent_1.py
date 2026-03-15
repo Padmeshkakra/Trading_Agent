@@ -10,8 +10,9 @@ import feedparser
 from datetime import datetime
 
 # ── Credentials ─────────────────────────────────────────────
-BOT_TOKEN = "8760995296:AAEK-2lmNRPmgcMvShLW9P2FT1TKUQsDA0I"
-CHAT_ID   = "8699759772"
+import os
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
+CHAT_ID   = os.environ.get('CHAT_ID')
 
 
 # ── Telegram ─────────────────────────────────────────────────    
@@ -172,8 +173,8 @@ def get_technical_analysis():
             rsi_signal = f"{rsi} — NEUTRAL ⚪"
 
         result  = f"RSI  : {rsi_signal}\n"
-        result += f"MACD : {macd}\n"
-        return result, rsi, macd
+        result += f"MACD : {'BULLISH' if macd_tuple[0].iloc[-1] > macd_tuple[1].iloc[-1] else 'BEARISH'}\n"
+        return result, rsi, macd_tuple
     except Exception as e:
         return f"Technical data unavailable: {e}\n", 50, "NEUTRAL"
 
@@ -401,7 +402,7 @@ def get_sector_analysis():
 
 
 # ── Trading Score ────────────────────────────────────────────
-def calculate_trading_score(global_mood, india_mood, fii_net, dii_net, rsi, macd):
+def calculate_trading_score(global_mood, india_mood, fii_net, dii_net, rsi, macd_tuple):
     score = 5.0
 
     if "BULLISH" in global_mood:
@@ -422,12 +423,51 @@ def calculate_trading_score(global_mood, india_mood, fii_net, dii_net, rsi, macd
     elif rsi > 70:
         score -= 1.0
 
-    macd_line, signal_line, _ = macd
-    macd_line, signal_line = macd
+    macd_line, signal_line = macd_tuple
+    if macd_line.iloc[-1] > signal_line.iloc[-1]:
         score += 0.5
     else:
         score -= 0.5
 
+    score = max(0, min(10, round(score, 1)))
+
+    if score >= 7:
+        action = "STRONG BUY 🚀"
+    elif score >= 5.5:
+        action = "BUY ✅"
+    elif score >= 4:
+        action = "NEUTRAL — Wait & Watch ⏳"
+    elif score >= 2.5:
+        action = "CAUTION — Light Position ⚠️"
+    else:
+        action = "AVOID — Stay in Cash 🔴"
+
+    return score, action
+    score = 5.0
+
+    if "BULLISH" in global_mood:
+        score += 1.0
+    elif "BEARISH" in global_mood:
+        score -= 1.0
+
+    if "BULLISH" in india_mood:
+        score += 1.0
+    elif "BEARISH" in india_mood:
+        score -= 1.0
+
+    score += 0.5 if fii_net > 0 else -0.5
+    score += 0.5 if dii_net > 0 else -0.5
+
+    if rsi < 30:
+        score += 1.0
+    elif rsi > 70:
+        score -= 1.0
+
+   macd_line, signal_line = macd_tuple
+        if macd_line.iloc[-1] > signal_line.iloc[-1]:
+            score += 0.5
+        else:
+            score -= 0.5
     score = max(0, min(10, round(score, 1)))
 
     if score >= 7:
