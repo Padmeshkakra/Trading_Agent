@@ -413,6 +413,19 @@ def calculate_trading_score(global_mood, india_mood, fii_net, dii_net, rsi, macd
 # COMMODITY SIGNAL (Alpha Vantage)
 # ════════════════════════════════════════════════════════════
 def get_commodity_signal(name, function):
+    # Live spot price via yfinance
+    yf_map = {"WTI": "CL=F", "NATURAL_GAS": "NG=F"}
+    live_price = None
+    try:
+        yf_symbol = yf_map.get(function)
+        if yf_symbol:
+            yf_data    = yf.Ticker(yf_symbol).history(period="2d")
+            live_price = round(float(yf_data['Close'].iloc[-1]), 2)
+            prev_price = round(float(yf_data['Close'].iloc[-2]), 2)
+            live_chg   = round(((live_price - prev_price) / prev_price) * 100, 2)
+    except:
+        pass
+
     try:
         url  = (f"https://www.alphavantage.co/query"
                 f"?function={function}&interval=monthly&apikey={ALPHA_KEY}")
@@ -420,25 +433,27 @@ def get_commodity_signal(name, function):
         raw  = resp.json().get('data', [])
 
         if not raw:
-            return f"\n🛢️ <b>{name}:</b> Data unavailable\n", "NEUTRAL"
+            live_line = f"Live: ${live_price}\n" if live_price else ""
+            return f"\n🛢️ <b>{name}:</b>\n{live_line}RSI/MACD: Unavailable\n", "NEUTRAL"
 
         closes = [float(d['value']) for d in reversed(raw) if d['value'] != '.']
         if len(closes) < 30:
             return f"\n🛢️ <b>{name}:</b> Insufficient data\n", "NEUTRAL"
 
         close  = pd.Series(closes)
-        price  = round(closes[-1], 2)
         rsi    = calculate_rsi(close, period=14)
         macd, sig = calculate_macd(close)
         m_val  = float(macd.iloc[-1])
         s_val  = float(sig.iloc[-1])
 
-        if   rsi < 35 and m_val > s_val: action, reason = "BUY 🟢",  f"RSI Oversold ({rsi}) + MACD Bullish"
-        elif rsi > 65 and m_val < s_val: action, reason = "SELL 🔴", f"RSI Overbought ({rsi}) + MACD Bearish"
+        if   rsi < 35 and m_val > s_val: action, reason = "BUY 🟢",     f"RSI Oversold ({rsi}) + MACD Bullish"
+        elif rsi > 65 and m_val < s_val: action, reason = "SELL 🔴",    f"RSI Overbought ({rsi}) + MACD Bearish"
         else:                             action, reason = "NEUTRAL ⚪", f"RSI: {rsi} — No clear signal"
 
         result  = f"\n🛢️ <b>{name}:</b>\n"
-        result += f"Price  : {price}\n"
+        if live_price:
+            arrow = "🟢" if live_chg > 0 else "🔴"
+            result += f"Live   : ${live_price} ({live_chg:+.2f}%) {arrow}\n"
         result += f"RSI    : {rsi}\n"
         result += f"MACD   : {'BULLISH 📈' if m_val > s_val else 'BEARISH 📉'}\n"
         result += f"Action : <b>{action}</b>\n"
@@ -468,6 +483,8 @@ def complete_morning_report():
     gl_data                          = get_top_gainers_losers()
     oi_data,      pcr, pcr_sig       = get_oi_data()
     sector_data,  best, worst        = get_sector_analysis()
+    crude_data,   _                  = get_commodity_signal("Crude Oil WTI", "WTI")
+    ng_data,      _                  = get_commodity_signal("Natural Gas", "NATURAL_GAS")
     score, action                    = calculate_trading_score(
                                            global_mood, india_mood,
                                            fii_net, dii_net, rsi, macd_bull)
@@ -503,6 +520,10 @@ def complete_morning_report():
 
     report += "🏭 <b>SECTOR ANALYSIS:</b>\n"
     report += sector_data + "\n"
+
+    report += "🛢️ <b>COMMODITY OUTLOOK:</b>\n"
+    report += crude_data
+    report += ng_data + "\n"
 
     report += "━" * 28 + "\n"
     report += f"🎯 <b>TRADING SCORE: {score}/10</b>\n"
