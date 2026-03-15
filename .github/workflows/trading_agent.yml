@@ -49,9 +49,7 @@ jobs:
 
       # ── Intraday Signals — 9:15 AM to 3:30 PM IST ─────────────
       - name: Intraday Signals (Every 15 min)
-        if: >
-          github.event.schedule == '*/15 3-10 * * 1-5' ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'signals')
+        if: github.event.schedule == '*/15 3-10 * * 1-5'
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID:   ${{ secrets.CHAT_ID }}
@@ -60,11 +58,19 @@ jobs:
 
       # ── Commodity Signals — Evening MCX ───────────────────────
       - name: Commodity Signals (MCX Evening)
-        if: >
-          github.event.schedule == '*/15 10-18 * * 1-5' ||
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'signals')
+        if: github.event.schedule == '*/15 10-18 * * 1-5'
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID:   ${{ secrets.CHAT_ID }}
           ALPHA_KEY: ${{ secrets.ALPHA_KEY }}
         run: python trading_agent_1.py signals
+
+      # ── Manual Test — signals mode (force, bypasses market hours) ──
+      - name: Manual Signals Test
+        if: >
+          github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'signals'
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID:   ${{ secrets.CHAT_ID }}
+          ALPHA_KEY: ${{ secrets.ALPHA_KEY }}
+        run: python trading_agent_1.py signals force
