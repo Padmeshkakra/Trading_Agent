@@ -163,8 +163,8 @@ def get_technical_analysis():
         close  = data['Close']
         rsi    = calculate_rsi(close)
         macd_tuple = calculate_macd(close)
-macd = "BULLISH 📈" if macd_tuple[0].iloc[-1] > macd_tuple[1].iloc[-1] else "BEARISH 📉"
-macd = (macd_tuple[0], macd_tuple[1], macd)
+macd_str   = "BULLISH" if macd_tuple[0].iloc[-1] > macd_tuple[1].iloc[-1] else "BEARISH"
+macd       = (macd_tuple[0], macd_tuple[1], macd_str)
 
         if rsi < 30:
             rsi_signal = f"{rsi} — OVERSOLD 🔥 (Buy Zone)"
