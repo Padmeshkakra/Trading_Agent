@@ -1,44 +1,54 @@
-name: Trading Agent
+name: Trading Agent v10.0
 
 on:
   schedule:
+    # 8:30 AM IST = 3:00 UTC (Morning Report)
     - cron: '0 3 * * 1-5'
+    # 9:15 AM - 3:30 PM IST = 3:45 - 10:00 UTC (Intraday every 15 min)
     - cron: '*/15 3-10 * * 1-5'
-    - cron: '*/15 11-18 * * 1-5'
+    # MCX Commodity 9 AM - 11:30 PM IST = 3:30 - 18:00 UTC (every 15 min)
+    - cron: '*/15 10-18 * * 1-5'
   workflow_dispatch:
 
 jobs:
   run-agent:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Setup Python
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install libraries
+      - name: Install dependencies
         run: pip install yfinance feedparser requests pandas pytz
 
-      - name: Morning Report (8:30 AM)
+      # ── Morning Report — 8:30 AM IST ──────────────────────
+      - name: Morning Report (8:30 AM IST)
         if: github.event.schedule == '0 3 * * 1-5' || github.event_name == 'workflow_dispatch'
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
+          CHAT_ID:   ${{ secrets.CHAT_ID }}
+          ALPHA_KEY: ${{ secrets.ALPHA_KEY }}
         run: python trading_agent_1.py
 
+      # ── Intraday Signals — 9:15 AM to 3:30 PM IST ─────────
       - name: Intraday Signals (Every 15 min)
         if: github.event.schedule == '*/15 3-10 * * 1-5'
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
+          CHAT_ID:   ${{ secrets.CHAT_ID }}
+          ALPHA_KEY: ${{ secrets.ALPHA_KEY }}
         run: python trading_agent_1.py signals
 
-      - name: Commodity Signals (Evening)
-        if: github.event.schedule == '*/15 11-18 * * 1-5' || github.event_name == 'workflow_dispatch'
+      # ── Commodity Signals — Evening MCX ───────────────────
+      - name: Commodity Signals (MCX Evening)
+        if: github.event.schedule == '*/15 10-18 * * 1-5'
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.CHAT_ID }}
+          CHAT_ID:   ${{ secrets.CHAT_ID }}
           ALPHA_KEY: ${{ secrets.ALPHA_KEY }}
         run: python trading_agent_1.py signals
