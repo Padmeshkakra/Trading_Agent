@@ -413,55 +413,64 @@ def calculate_trading_score(global_mood, india_mood, fii_net, dii_net, rsi, macd
 # COMMODITY SIGNAL (Alpha Vantage)
 # ════════════════════════════════════════════════════════════
 def get_commodity_signal(name, function):
-    # Live spot price via yfinance
-    yf_map = {"WTI": "CL=F", "NATURAL_GAS": "NG=F"}
-    live_price = None
+    # ── Step 1: Live price + RSI/MACD via yfinance (primary source) ──
+    yf_map       = {"WTI": "CL=F", "NATURAL_GAS": "NG=F"}
+    live_price   = None
+    live_chg     = 0.0        # default to avoid scope error
+    yf_rsi       = None
+    yf_macd_bull = None
     try:
         yf_symbol = yf_map.get(function)
         if yf_symbol:
-            yf_data    = yf.Ticker(yf_symbol).history(period="2d")
-            live_price = round(float(yf_data['Close'].iloc[-1]), 2)
-            prev_price = round(float(yf_data['Close'].iloc[-2]), 2)
-            live_chg   = round(((live_price - prev_price) / prev_price) * 100, 2)
+            yf_data      = yf.Ticker(yf_symbol).history(period="60d")
+            live_price   = round(float(yf_data['Close'].iloc[-1]), 2)
+            prev_price   = round(float(yf_data['Close'].iloc[-2]), 2)
+            live_chg     = round(((live_price - prev_price) / prev_price) * 100, 2)
+            yf_rsi       = calculate_rsi(yf_data['Close'], period=14)
+            yf_macd_bull = macd_is_bullish(yf_data['Close'])
     except:
         pass
 
+    # ── Step 2: Alpha Vantage monthly data (deeper RSI/MACD) ──
+    av_rsi       = None
+    av_macd_bull = None
     try:
-        url  = (f"https://www.alphavantage.co/query"
-                f"?function={function}&interval=monthly&apikey={ALPHA_KEY}")
-        resp = requests.get(url, timeout=15)
-        raw  = resp.json().get('data', [])
-
-        if not raw:
-            live_line = f"Live: ${live_price}\n" if live_price else ""
-            return f"\n🛢️ <b>{name}:</b>\n{live_line}RSI/MACD: Unavailable\n", "NEUTRAL"
-
+        url    = (f"https://www.alphavantage.co/query"
+                  f"?function={function}&interval=monthly&apikey={ALPHA_KEY}")
+        resp   = requests.get(url, timeout=15)
+        raw    = resp.json().get('data', [])
         closes = [float(d['value']) for d in reversed(raw) if d['value'] != '.']
-        if len(closes) < 30:
-            return f"\n🛢️ <b>{name}:</b> Insufficient data\n", "NEUTRAL"
+        if len(closes) >= 20:
+            close        = pd.Series(closes)
+            av_rsi       = calculate_rsi(close, period=14)
+            av_macd_bull = macd_is_bullish(close)
+    except:
+        pass
 
-        close  = pd.Series(closes)
-        rsi    = calculate_rsi(close, period=14)
-        macd, sig = calculate_macd(close)
-        m_val  = float(macd.iloc[-1])
-        s_val  = float(sig.iloc[-1])
+    # ── Step 3: Best available data ──
+    rsi       = av_rsi       if av_rsi       is not None else yf_rsi
+    macd_bull = av_macd_bull if av_macd_bull is not None else yf_macd_bull
 
-        if   rsi < 35 and m_val > s_val: action, reason = "BUY 🟢",     f"RSI Oversold ({rsi}) + MACD Bullish"
-        elif rsi > 65 and m_val < s_val: action, reason = "SELL 🔴",    f"RSI Overbought ({rsi}) + MACD Bearish"
-        else:                             action, reason = "NEUTRAL ⚪", f"RSI: {rsi} — No clear signal"
+    # ── Step 4: Build result ──
+    result = f"\n🛢️ <b>{name}:</b>\n"
+    if live_price:
+        arrow   = "🟢" if live_chg > 0 else "🔴"
+        result += f"Live   : ${live_price} ({live_chg:+.2f}%) {arrow}\n"
+    else:
+        result += f"Live   : Unavailable\n"
 
-        result  = f"\n🛢️ <b>{name}:</b>\n"
-        if live_price:
-            arrow = "🟢" if live_chg > 0 else "🔴"
-            result += f"Live   : ${live_price} ({live_chg:+.2f}%) {arrow}\n"
+    if rsi is not None and macd_bull is not None:
+        if   rsi < 35 and macd_bull:     action, reason = "BUY 🟢",    f"RSI Oversold ({rsi}) + MACD Bullish"
+        elif rsi > 65 and not macd_bull: action, reason = "SELL 🔴",   f"RSI Overbought ({rsi}) + MACD Bearish"
+        else:                            action, reason = "NEUTRAL ⚪", f"RSI: {rsi} — No clear signal"
         result += f"RSI    : {rsi}\n"
-        result += f"MACD   : {'BULLISH 📈' if m_val > s_val else 'BEARISH 📉'}\n"
+        result += f"MACD   : {'BULLISH 📈' if macd_bull else 'BEARISH 📉'}\n"
         result += f"Action : <b>{action}</b>\n"
         result += f"Reason : {reason}\n"
         return result, action
-
-    except Exception as e:
-        return f"\n🛢️ <b>{name}:</b> Error — {e}\n", "NEUTRAL"
+    else:
+        result += "RSI/MACD: Unavailable\n"
+        return result, "NEUTRAL"
 
 
 # ════════════════════════════════════════════════════════════
