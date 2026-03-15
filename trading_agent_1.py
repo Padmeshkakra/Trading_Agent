@@ -549,7 +549,7 @@ def complete_morning_report():
 # ════════════════════════════════════════════════════════════
 # INTRADAY + COMMODITY SIGNALS (Every 15 min)
 # ════════════════════════════════════════════════════════════
-def get_all_signals():
+def get_all_signals(force=False):
     now  = datetime.now(IST)
     hour = now.hour
     mint = now.minute
@@ -558,9 +558,15 @@ def get_all_signals():
     nifty_open     = (9 <= hour < 15) or (hour == 15 and mint <= 30)
     commodity_open = (9 <= hour < 23) or (hour == 23 and mint <= 30)
 
-    if not commodity_open:
+    # force=True bypasses market hours (manual trigger / testing)
+    if not force and not commodity_open:
         print(f"⏸️  All markets closed — IST: {now.strftime('%H:%M')}")
         return
+
+    # In force mode, use last available candle even if market closed
+    if force:
+        nifty_open     = True
+        commodity_open = True
 
     try:
         msg  = f"📊 <b>TRADING SIGNALS — v10.0</b>\n"
@@ -640,6 +646,8 @@ def get_all_signals():
 # ════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "signals":
-        get_all_signals()
+        # force=True — bypasses market hours, used for manual triggers & testing
+        force = len(sys.argv) > 2 and sys.argv[2] == "force"
+        get_all_signals(force=force)
     else:
         complete_morning_report()
