@@ -1,6 +1,6 @@
 # ============================================================
 # 🤖 PADMESH JI KA TRADING AGENT v10.0
-# GitHub Actions — Clean Rewrite (Bug Free)
+# GitHub Actions — Clean Rewrite (Bug Free) v2
 # ============================================================
 
 import os
