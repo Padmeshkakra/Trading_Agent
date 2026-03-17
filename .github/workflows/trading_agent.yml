@@ -4,62 +4,8 @@ on:
   schedule:
     # Morning Report — 8:30 AM IST = 3:00 UTC
     - cron: '0 3 * * 1-5'
-    # Intraday Signals — every 15 min, 9:15 AM to 3:30 PM IST = 3:45-10:00 UTC
-    - cron: '45 3 * * 1-5'
-    - cron: '0 4 * * 1-5'
-    - cron: '15 4 * * 1-5'
-    - cron: '30 4 * * 1-5'
-    - cron: '45 4 * * 1-5'
-    - cron: '0 5 * * 1-5'
-    - cron: '15 5 * * 1-5'
-    - cron: '30 5 * * 1-5'
-    - cron: '45 5 * * 1-5'
-    - cron: '0 6 * * 1-5'
-    - cron: '15 6 * * 1-5'
-    - cron: '30 6 * * 1-5'
-    - cron: '45 6 * * 1-5'
-    - cron: '0 7 * * 1-5'
-    - cron: '15 7 * * 1-5'
-    - cron: '30 7 * * 1-5'
-    - cron: '45 7 * * 1-5'
-    - cron: '0 8 * * 1-5'
-    - cron: '15 8 * * 1-5'
-    - cron: '30 8 * * 1-5'
-    - cron: '45 8 * * 1-5'
-    - cron: '0 9 * * 1-5'
-    - cron: '15 9 * * 1-5'
-    # Evening Commodity — 4:00 PM to 11:30 PM IST = 10:30-18:00 UTC
-    - cron: '30 10 * * 1-5'
-    - cron: '45 10 * * 1-5'
-    - cron: '0 11 * * 1-5'
-    - cron: '15 11 * * 1-5'
-    - cron: '30 11 * * 1-5'
-    - cron: '45 11 * * 1-5'
-    - cron: '0 12 * * 1-5'
-    - cron: '15 12 * * 1-5'
-    - cron: '30 12 * * 1-5'
-    - cron: '45 12 * * 1-5'
-    - cron: '0 13 * * 1-5'
-    - cron: '15 13 * * 1-5'
-    - cron: '30 13 * * 1-5'
-    - cron: '45 13 * * 1-5'
-    - cron: '0 14 * * 1-5'
-    - cron: '15 14 * * 1-5'
-    - cron: '30 14 * * 1-5'
-    - cron: '45 14 * * 1-5'
-    - cron: '0 15 * * 1-5'
-    - cron: '15 15 * * 1-5'
-    - cron: '30 15 * * 1-5'
-    - cron: '45 15 * * 1-5'
-    - cron: '0 16 * * 1-5'
-    - cron: '15 16 * * 1-5'
-    - cron: '30 16 * * 1-5'
-    - cron: '45 16 * * 1-5'
-    - cron: '0 17 * * 1-5'
-    - cron: '15 17 * * 1-5'
-    - cron: '30 17 * * 1-5'
-    - cron: '45 17 * * 1-5'
-    - cron: '0 18 * * 1-5'
+    # Signals — every 15 min during market hours (single wildcard)
+    - cron: '*/15 4-10 * * 1-5'
 
   workflow_dispatch:
     inputs:
@@ -88,7 +34,6 @@ jobs:
       - name: Install dependencies
         run: pip install yfinance feedparser requests pandas pytz
 
-      # ── Morning Report — 8:30 AM IST ──────────────────────────
       - name: Morning Report
         if: >
           github.event.schedule == '0 3 * * 1-5' ||
@@ -99,10 +44,9 @@ jobs:
           ALPHA_KEY: ${{ secrets.ALPHA_KEY }}
         run: python trading_agent_1.py
 
-      # ── Intraday + Commodity Signals ───────────────────────────
       - name: Trading Signals
         if: >
-          (github.event.schedule != '0 3 * * 1-5' && github.event_name == 'schedule') ||
+          github.event.schedule == '*/15 4-10 * * 1-5' ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'signals')
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
