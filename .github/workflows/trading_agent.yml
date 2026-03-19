@@ -5,7 +5,7 @@ on:
     # Morning Report — 8:30 AM IST = 3:00 UTC
     - cron: '0 3 * * 1-5'
     # Signals — every 15 min during market hours (single wildcard)
-    - cron: '*/15 4-10 * * 1-5'
+    - cron: '1-59/15 4-10 * * 1-5'
 
   workflow_dispatch:
     inputs:
