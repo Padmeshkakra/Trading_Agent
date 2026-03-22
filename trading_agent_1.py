@@ -1,8 +1,8 @@
 # ============================================================
-# 🤖 PADMESH JI KA TRADING AGENT v11.2 - 2026
-# GitHub Actions — v11.2 Critical Fix
-# Fix: All pattern/RSI/MACD now use last COMPLETED candle
-#      iloc[-1] = forming (skipped), iloc[-2] = completed ✅
+# 🤖 PADMESH JI KA TRADING AGENT v11.3 - 2026
+# GitHub Actions — v11.3 Patch
+# Fix: VIX correctly labelled as US VIX
+#      India VIX shown as unavailable (honest display)
 # ============================================================
 
 import os
@@ -44,11 +44,10 @@ def send_telegram(message):
 
 # ════════════════════════════════════════════════════════════
 # TECHNICAL INDICATORS
-# All use completed candles — iloc[-2] as last complete bar
+# All use completed candles — iloc[-1] = forming (skipped)
 # ════════════════════════════════════════════════════════════
 def calculate_rsi(close: pd.Series, period: int = 14) -> float:
-    """RSI on completed candles — drops iloc[-1] (forming)"""
-    series = close.iloc[:-1]   # exclude forming candle
+    series = close.iloc[:-1]
     if len(series) < period + 1:
         return 50.0
     delta = series.diff()
@@ -61,8 +60,7 @@ def calculate_rsi(close: pd.Series, period: int = 14) -> float:
 
 
 def calculate_macd(close: pd.Series):
-    """MACD on completed candles — drops iloc[-1] (forming)"""
-    series = close.iloc[:-1]   # exclude forming candle
+    series = close.iloc[:-1]
     ema12  = series.ewm(span=12, adjust=False).mean()
     ema26  = series.ewm(span=26, adjust=False).mean()
     macd   = ema12 - ema26
@@ -76,7 +74,6 @@ def macd_is_bullish(close: pd.Series) -> bool:
 
 
 def get_rsi_series(close: pd.Series, period: int = 14) -> pd.Series:
-    """Full RSI series for divergence — on completed candles"""
     series = close.iloc[:-1]
     if len(series) < period + 1:
         return pd.Series([50.0] * len(series))
@@ -88,8 +85,6 @@ def get_rsi_series(close: pd.Series, period: int = 14) -> pd.Series:
     return rsi.fillna(50.0)
 
 
-# Morning report uses daily data — no forming candle issue
-# but we keep consistent by using iloc[:-1] everywhere
 def calculate_rsi_daily(close: pd.Series, period: int = 14) -> float:
     if len(close) < period + 1:
         return 50.0
@@ -111,41 +106,32 @@ def macd_is_bullish_daily(close: pd.Series) -> bool:
 
 
 # ════════════════════════════════════════════════════════════
-# VIX — India VIX + fallback to ^VIX
+# VIX — v11.3: US VIX with honest labelling
+# India VIX not available via free API
 # ════════════════════════════════════════════════════════════
-def get_vix() -> float:
-    # Try India VIX first
-    for ticker in ["^INDIAVIX", "INDIAVIX.NS"]:
-        try:
-            data = yf.Ticker(ticker).history(period="5d")
-            if len(data) > 0:
-                val = round(float(data['Close'].iloc[-1]), 2)
-                if val > 0:
-                    print(f"✅ India VIX: {val} (via {ticker})")
-                    return val
-        except:
-            pass
-    # Fallback: US VIX
+def get_vix() -> tuple:
+    """
+    Returns (vix_value, label, note)
+    Tries US VIX only — India VIX not on yfinance free feed.
+    """
     try:
         data = yf.Ticker("^VIX").history(period="5d")
         val  = round(float(data['Close'].iloc[-1]), 2)
-        print(f"⚠️  Using US VIX as fallback: {val}")
-        return val
+        return val, "US VIX", "(India VIX N/A via free API)"
     except:
-        return 15.0
+        return 18.0, "US VIX", "(India VIX N/A via free API)"
 
 
 # ════════════════════════════════════════════════════════════
-# DIVERGENCE DETECTION — on completed candles
+# DIVERGENCE DETECTION — completed candles
 # ════════════════════════════════════════════════════════════
 def detect_divergence(close: pd.Series, lookback: int = 30) -> tuple:
     try:
-        # Use completed candles only
         completed = close.iloc[:-1]
         if len(completed) < lookback + 5:
             return "NONE", "NEUTRAL", ""
 
-        rsi_series = get_rsi_series(close)   # already excludes forming
+        rsi_series = get_rsi_series(close)
         price = completed.iloc[-lookback:].reset_index(drop=True)
         rsi   = rsi_series.iloc[-lookback:].reset_index(drop=True)
 
@@ -198,12 +184,11 @@ def detect_divergence(close: pd.Series, lookback: int = 30) -> tuple:
 
 
 # ════════════════════════════════════════════════════════════
-# CHANNEL BREAKOUT — on completed candles
+# CHANNEL BREAKOUT — completed candles
 # ════════════════════════════════════════════════════════════
 def detect_channel_breakout(close: pd.Series, high: pd.Series,
                              low: pd.Series, lookback: int = 20) -> tuple:
     try:
-        # Use completed candles
         c_close = close.iloc[:-1]
         c_high  = high.iloc[:-1]
         c_low   = low.iloc[:-1]
@@ -213,7 +198,7 @@ def detect_channel_breakout(close: pd.Series, high: pd.Series,
 
         channel_high  = c_high.iloc[-lookback-1:-1].max()
         channel_low   = c_low.iloc[-lookback-1:-1].min()
-        current       = float(c_close.iloc[-1])   # last completed
+        current       = float(c_close.iloc[-1])
         prev          = float(c_close.iloc[-2])
         channel_range = channel_high - channel_low
         buffer        = channel_range * 0.003
@@ -240,13 +225,9 @@ def detect_channel_breakout(close: pd.Series, high: pd.Series,
 
 
 # ════════════════════════════════════════════════════════════
-# CHART PATTERN DETECTION — KEY FIX v11.2
-# Uses completed candles only:
-#   c   = iloc[-2]  last completed candle  ✅
-#   pc  = iloc[-3]  previous completed     ✅
-#   ppc = iloc[-4]  two back               ✅
-# Single candle patterns use if/if (not elif) so multiple
-# patterns can fire. Multi-candle checked separately.
+# CHART PATTERN DETECTION — completed candles (v11.2 fix)
+# c=iloc[-2], pc=iloc[-3], ppc=iloc[-4]
+# All patterns use if/if (not elif) — multiple can fire
 # ════════════════════════════════════════════════════════════
 def detect_chart_patterns(data: pd.DataFrame) -> list:
     patterns = []
@@ -258,13 +239,6 @@ def detect_chart_patterns(data: pd.DataFrame) -> list:
         highs  = data['High'].values
         lows   = data['Low'].values
         closes = data['Close'].values
-
-        # ── Completed candle indices ──
-        # [-1] = forming candle (SKIP)
-        # [-2] = last completed  = C
-        # [-3] = previous        = PC
-        # [-4] = two back        = PPC
-        # [-5] = three back      = PPPC
 
         c,   h,   l,   o   = closes[-2], highs[-2], lows[-2], opens[-2]
         pc,  ph,  pl,  po  = closes[-3], highs[-3], lows[-3], opens[-3]
@@ -280,9 +254,7 @@ def detect_chart_patterns(data: pd.DataFrame) -> list:
         c3_body     = abs(c - o)
         c1_mid      = (ppo + ppc) / 2
 
-        # ── Single candle patterns — all use if (not elif) ──
-        # Multiple can fire simultaneously
-
+        # ── Single candle — all if (not elif) ──
         if body <= total_range * 0.1:
             patterns.append(("DOJI", "CAUTION",
                              "Doji ➖ — Indecision, reversal possible ⚠️"))
@@ -303,53 +275,34 @@ def detect_chart_patterns(data: pd.DataFrame) -> list:
             patterns.append(("BEARISH_MARUBOZU", "SELL",
                              "Bearish Marubozu 🔴 — Full bear candle, strong downtrend 📉"))
 
-        # ── Two candle patterns ──
-
-        if (c > o and pc < po and           # C bullish, PC bearish
-                c > po and o < pc and       # C body engulfs PC body
-                body > prev_body * 1.1):    # C body larger
+        # ── Two candle ──
+        if (c > o and pc < po and c > po and o < pc and body > prev_body * 1.1):
             patterns.append(("BULLISH_ENGULFING", "BUY",
                              "Bullish Engulfing 🟢 — Momentum flip, strong BUY 🚀"))
 
-        if (c < o and pc > po and           # C bearish, PC bullish
-                c < po and o > pc and       # C body engulfs PC body
-                body > prev_body * 1.1):
+        if (c < o and pc > po and c < po and o > pc and body > prev_body * 1.1):
             patterns.append(("BEARISH_ENGULFING", "SELL",
                              "Bearish Engulfing 🔴 — Selling momentum, strong SELL 📉"))
 
-        # ── Three candle patterns ──
-        # Morning Star: C1 bearish, C2 small star, C3 bullish above C1 midpoint
-        if (ppc < ppo and                       # C1 (ppc) bearish
-                c2_body <= c1_body * 0.3 and    # C2 (pc) small star
-                c > o and                       # C3 (c) bullish
-                c > c1_mid and                  # C3 closes above C1 midpoint
-                c3_body >= c1_body * 0.5):      # C3 has significant body
+        # ── Three candle ──
+        if (ppc < ppo and c2_body <= c1_body * 0.3 and
+                c > o and c > c1_mid and c3_body >= c1_body * 0.5):
             patterns.append(("MORNING_STAR", "BUY",
                              "Morning Star ⭐ — 3-candle bullish reversal, strong BUY 🌅"))
 
-        # Evening Star: C1 bullish, C2 small star, C3 bearish below C1 midpoint
-        if (ppc > ppo and
-                c2_body <= c1_body * 0.3 and
-                c < o and
-                c < c1_mid and
-                c3_body >= c1_body * 0.5):
+        if (ppc > ppo and c2_body <= c1_body * 0.3 and
+                c < o and c < c1_mid and c3_body >= c1_body * 0.5):
             patterns.append(("EVENING_STAR", "SELL",
                              "Evening Star 🌆 — 3-candle bearish reversal, strong SELL 🌃"))
 
-        # Three White Soldiers
-        if (closes[-4] > opens[-4] and
-                closes[-3] > opens[-3] and
-                closes[-2] > opens[-2] and
-                closes[-3] > closes[-4] and
+        if (closes[-4] > opens[-4] and closes[-3] > opens[-3] and
+                closes[-2] > opens[-2] and closes[-3] > closes[-4] and
                 closes[-2] > closes[-3]):
             patterns.append(("THREE_WHITE_SOLDIERS", "BUY",
                              "Three White Soldiers 🪖 — 3 bullish candles, strong uptrend 🚀"))
 
-        # Three Black Crows
-        if (closes[-4] < opens[-4] and
-                closes[-3] < opens[-3] and
-                closes[-2] < opens[-2] and
-                closes[-3] < closes[-4] and
+        if (closes[-4] < opens[-4] and closes[-3] < opens[-3] and
+                closes[-2] < opens[-2] and closes[-3] < closes[-4] and
                 closes[-2] < closes[-3]):
             patterns.append(("THREE_BLACK_CROWS", "SELL",
                              "Three Black Crows 🦅 — 3 bearish candles, strong downtrend 📉"))
@@ -372,7 +325,6 @@ def confluence_score(rsi: float, macd_bull: bool,
     bear_points = 0
     reasons     = []
 
-    # RSI
     if rsi < 30:
         bull_points += 2
         reasons.append(f"RSI oversold ({rsi})")
@@ -386,7 +338,6 @@ def confluence_score(rsi: float, macd_bull: bool,
         bear_points += 1
         reasons.append(f"RSI bearish zone ({rsi})")
 
-    # MACD
     if macd_bull:
         bull_points += 1
         reasons.append("MACD bullish crossover")
@@ -394,7 +345,6 @@ def confluence_score(rsi: float, macd_bull: bool,
         bear_points += 1
         reasons.append("MACD bearish")
 
-    # Divergence (high weight — early signal)
     if divergence_signal == "BUY":
         bull_points += 3
         reasons.append("Divergence: BUY")
@@ -402,7 +352,6 @@ def confluence_score(rsi: float, macd_bull: bool,
         bear_points += 3
         reasons.append("Divergence: SELL")
 
-    # Patterns — all fire independently now
     has_doji = False
     for sig in pattern_signals:
         if sig == "BUY":
@@ -414,13 +363,11 @@ def confluence_score(rsi: float, macd_bull: bool,
         elif sig == "CAUTION":
             has_doji = True
 
-    # Doji only reduces confidence if NO other pattern agrees
     if has_doji and len(pattern_signals) == 1:
         bull_points = max(0, bull_points - 1)
         bear_points = max(0, bear_points - 1)
         reasons.append("Doji: indecision")
 
-    # Channel Breakout
     if breakout_signal == "BUY":
         bull_points += 2
         reasons.append("Channel breakout UP")
@@ -434,7 +381,6 @@ def confluence_score(rsi: float, macd_bull: bool,
         bear_points += 1
         reasons.append("Approaching support")
 
-    # Price momentum
     if abs(price_change_pct) > 1.5:
         if price_change_pct > 0:
             bull_points += 1
@@ -526,7 +472,7 @@ def get_india_markets():
 
 
 # ════════════════════════════════════════════════════════════
-# TECHNICAL ANALYSIS (Morning — daily data)
+# TECHNICAL ANALYSIS (Morning)
 # ════════════════════════════════════════════════════════════
 def get_technical_analysis():
     try:
@@ -550,7 +496,7 @@ def get_technical_analysis():
 
 
 # ════════════════════════════════════════════════════════════
-# PATTERN ANALYSIS — Morning (daily data, completed candles)
+# PATTERN ANALYSIS — Morning
 # ════════════════════════════════════════════════════════════
 def detect_all_patterns_morning():
     try:
@@ -559,11 +505,10 @@ def detect_all_patterns_morning():
         high  = data['High']
         low   = data['Low']
 
-        chart_patterns             = detect_chart_patterns(data)
-        _, div_signal, div_desc    = detect_divergence(close, lookback=40)
-        _, bo_signal,  bo_desc     = detect_channel_breakout(close, high, low, lookback=20)
+        chart_patterns          = detect_chart_patterns(data)
+        _, div_signal, div_desc = detect_divergence(close, lookback=40)
+        _, bo_signal,  bo_desc  = detect_channel_breakout(close, high, low, lookback=20)
 
-        # Display last completed candle OHLC (iloc[-2] for daily too, consistent)
         o = round(float(data['Open'].iloc[-2]),  1)
         h = round(float(data['High'].iloc[-2]),  1)
         l = round(float(data['Low'].iloc[-2]),   1)
@@ -671,7 +616,7 @@ def get_top_gainers_losers():
 
 
 # ════════════════════════════════════════════════════════════
-# OI ANALYSIS — India VIX fixed
+# OI ANALYSIS — v11.3: Honest VIX labelling
 # ════════════════════════════════════════════════════════════
 def get_oi_data():
     try:
@@ -682,7 +627,7 @@ def get_oi_data():
         res   = round(float(data['High'].max()), 0)
         sup   = round(float(data['Low'].min()), 0)
 
-        vix = get_vix()
+        vix, vix_label, vix_note = get_vix()
 
         if vix > 20:   pcr, pcr_signal = 0.75, "BEARISH 🐻"
         elif vix < 15: pcr, pcr_signal = 1.30, "BULLISH 🐂"
@@ -692,11 +637,11 @@ def get_oi_data():
         result += f"ATM Strike  : {atm}\n"
         result += f"Resistance  : {res} 🔴\n"
         result += f"Support     : {sup} 🟢\n"
-        result += f"India VIX   : {vix}\n"
+        result += f"{vix_label}     : {vix} {vix_note}\n"
         result += f"PCR (est.)  : {pcr} — <b>{pcr_signal}</b>\n"
         return result, pcr, pcr_signal, vix
     except Exception as e:
-        return f"OI Data unavailable: {e}\n", 1.0, "NEUTRAL ⚪", 15.0
+        return f"OI Data unavailable: {e}\n", 1.0, "NEUTRAL ⚪", 18.0
 
 
 # ════════════════════════════════════════════════════════════
@@ -782,7 +727,7 @@ def calculate_trading_score(global_mood, india_mood,
 
 
 # ════════════════════════════════════════════════════════════
-# COMMODITY SIGNAL v11.2
+# COMMODITY SIGNAL
 # ════════════════════════════════════════════════════════════
 def get_commodity_signal(name, function):
     yf_map       = {"WTI": "CL=F", "NATURAL_GAS": "NG=F"}
@@ -796,11 +741,9 @@ def get_commodity_signal(name, function):
         yf_symbol = yf_map.get(function)
         if yf_symbol:
             yf_data      = yf.Ticker(yf_symbol).history(period="90d")
-            # Price: use iloc[-1] for live display only
             live_price   = round(float(yf_data['Close'].iloc[-1]), 2)
             prev_price   = round(float(yf_data['Close'].iloc[-2]), 2)
             live_chg     = round(((live_price - prev_price) / prev_price) * 100, 2)
-            # RSI/MACD: completed candles
             yf_rsi       = calculate_rsi(yf_data['Close'], period=14)
             yf_macd_bull = macd_is_bullish(yf_data['Close'])
     except:
@@ -874,7 +817,7 @@ def get_commodity_signal(name, function):
 # ════════════════════════════════════════════════════════════
 def complete_morning_report():
     print("=" * 40)
-    print("🤖 Generating Morning Report v11.2...")
+    print("🤖 Generating Morning Report v11.3...")
     print("=" * 40)
 
     now = datetime.now(IST).strftime("%d-%m-%Y %H:%M")
@@ -894,7 +837,7 @@ def complete_morning_report():
                                                  rsi, macd_bull,
                                                  pat_sigs, div_sig, bo_sig, vix)
 
-    report  = f"🤖 <b>PADMESH JI KA TRADING AGENT v11.2</b>\n"
+    report  = f"🤖 <b>PADMESH JI KA TRADING AGENT v11.3</b>\n"
     report += f"📅 {now} IST\n"
     report += "━" * 28 + "\n\n"
 
@@ -940,8 +883,7 @@ def complete_morning_report():
 
 
 # ════════════════════════════════════════════════════════════
-# INTRADAY SIGNALS v11.2 — Every 15 min
-# All indicators use completed candles (iloc[-2] as current)
+# INTRADAY SIGNALS v11.3 — Every 15 min + 1 min offset
 # ════════════════════════════════════════════════════════════
 def get_all_signals(force=False):
     now  = datetime.now(IST)
@@ -960,7 +902,7 @@ def get_all_signals(force=False):
         commodity_open = True
 
     try:
-        msg  = f"📊 <b>TRADING SIGNALS — v11.2</b>\n"
+        msg  = f"📊 <b>TRADING SIGNALS — v11.3</b>\n"
         msg += f"⏰ {now.strftime('%d-%m-%Y %H:%M')} IST\n"
         msg += "━" * 25 + "\n"
 
@@ -970,17 +912,13 @@ def get_all_signals(force=False):
             high  = data['High']
             low   = data['Low']
 
-            # All indicators on completed candles
             rsi   = calculate_rsi(close, period=14)
             macd, signal_line = calculate_macd(close)
             m_val = float(macd.iloc[-1])
             s_val = float(signal_line.iloc[-1])
 
-            # Live spot from latest tick (iloc[-1] OK for display only)
             spot  = round(float(close.iloc[-1]), 2)
             atm   = round(spot / atm_round) * atm_round
-
-            # Price change on completed candles
             chg   = round(((float(close.iloc[-2]) - float(close.iloc[-3]))
                             / float(close.iloc[-3])) * 100, 2)
 
