@@ -4,10 +4,8 @@ on:
   schedule:
     # Morning Report — 8:30 AM IST = 3:00 UTC
     - cron: '0 3 * * 1-5'
-    # Signals — every 15 min during market hours (single wildcard)
-    - cron: '1-59/15 4-10 * * 1-5'
-
-  workflow_dispatch:
+    # Signals — every 15 min + 1 min offset
+    - cron: '1,16,31,46 4-10 * * 1-5'  workflow_dispatch:
     inputs:
       mode:
         description: 'Run mode: morning OR signals'
