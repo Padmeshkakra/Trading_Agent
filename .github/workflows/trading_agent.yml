@@ -1,11 +1,11 @@
 name: Trading Agent v10.0
-
 on:
   schedule:
     # Morning Report — 8:30 AM IST = 3:00 UTC
     - cron: '0 3 * * 1-5'
-    # Signals — every 15 min + 1 min offset
-    - cron: '1,16,31,46 4-10 * * 1-5'  workflow_dispatch:
+    # Signals — every 15 min + 1 min offset (candle fully closed)
+    - cron: '1,16,31,46 4-10 * * 1-5'
+  workflow_dispatch:
     inputs:
       mode:
         description: 'Run mode: morning OR signals'
@@ -15,23 +15,18 @@ on:
         options:
           - morning
           - signals
-
 jobs:
   run-agent:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install dependencies
         run: pip install yfinance feedparser requests pandas pytz
-
       - name: Morning Report
         if: >
           github.event.schedule == '0 3 * * 1-5' ||
@@ -41,10 +36,9 @@ jobs:
           CHAT_ID:   ${{ secrets.CHAT_ID }}
           ALPHA_KEY: ${{ secrets.ALPHA_KEY }}
         run: python trading_agent_1.py
-
       - name: Trading Signals
         if: >
-          github.event.schedule == '*/15 4-10 * * 1-5' ||
+          github.event.schedule == '1,16,31,46 4-10 * * 1-5' ||
           (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'signals')
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
