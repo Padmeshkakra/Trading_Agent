@@ -1,6 +1,6 @@
 # ============================================================
-# 🤖 PADMESH JI KA TRADING AGENT v11.3 - 2026
-# GitHub Actions — v11.3 Patch
+# 🤖 PADMESH JI KA TRADING AGENT v11.4 - 2026
+# GitHub Actions — v11.4 Patch
 # Fix: VIX correctly labelled as US VIX
 #      India VIX shown as unavailable (honest display)
 # ============================================================
@@ -883,13 +883,21 @@ def complete_morning_report():
 
 
 # ════════════════════════════════════════════════════════════
-# INTRADAY SIGNALS v11.3 — Every 15 min + 1 min offset
+# INTRADAY SIGNALS v11.4 — Every 15 min + data settle wait
 # ════════════════════════════════════════════════════════════
 def get_all_signals(force=False):
+
+    # ── Wait for yfinance data to settle after candle close ──
+    if not force:
+        import time
+        print("⏳ Waiting 3 mins for candle data to settle...")
+        time.sleep(180)  # 3 minutes — ensures closed candle data
+    # ─────────────────────────────────────────────────────────
+
     now  = datetime.now(IST)
     hour = now.hour
     mint = now.minute
-
+    
     nifty_open     = (9 <= hour < 15) or (hour == 15 and mint <= 30)
     commodity_open = (9 <= hour < 23) or (hour == 23 and mint <= 30)
 
