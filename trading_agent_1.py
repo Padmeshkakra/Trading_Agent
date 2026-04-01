@@ -837,7 +837,7 @@ def complete_morning_report():
                                                  rsi, macd_bull,
                                                  pat_sigs, div_sig, bo_sig, vix)
 
-    report  = f"🤖 <b>PADMESH JI KA TRADING AGENT v11.3</b>\n"
+    report  = f"🤖 <b>PADMESH JI KA TRADING AGENT v11.4</b>\n"
     report += f"📅 {now} IST\n"
     report += "━" * 28 + "\n\n"
 
@@ -910,7 +910,7 @@ def get_all_signals(force=False):
         commodity_open = True
 
     try:
-        msg  = f"📊 <b>TRADING SIGNALS — v11.3</b>\n"
+        msg  = f"📊 <b>TRADING SIGNALS — v11.4</b>\n"
         msg += f"⏰ {now.strftime('%d-%m-%Y %H:%M')} IST\n"
         msg += "━" * 25 + "\n"
 
